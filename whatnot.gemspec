@@ -11,7 +11,7 @@ Gem::Specification.new do |s|
   s.date = "2015-07-23"
   s.description = "Fast constraint solver with user-friendly API"
   # s.executables = ["git-changelog"]
-  s.extra_rdoc_files = ["README", "LICENSE"]
+  s.extra_rdoc_files = ["README.md", "LICENSE"]
   s.files = `git ls-files`.split("\n")
   s.homepage = ""
   s.require_paths = ["lib"]
