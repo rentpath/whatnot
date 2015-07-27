@@ -19,9 +19,11 @@ Then you may specify any number of *constraints* between any number of variables
 
 #### Initializing
 
-First, you have to create a SwitchInterpreter:
+First, you have to include the library and create a SwitchInterpreter:
 
 ```ruby
+include Whatnot
+
 i = SwitchInterpreter.new
 ```
 
@@ -38,6 +40,16 @@ To create a set called `:C` which can hold up to 3 values between 1 and 6:
 ```ruby
 i.create_set(:C, [1,2,3,4,5,6], max_values: 3)
 ```
+
+#### Solving
+
+To solve the system:
+
+```ruby
+solution = SolutionEnumerator.new(i.method(:interpret), i.dimacs).first
+```
+
+See the Sudoku test in `switch_interpreter_spec.rb` for a more thorough usage example.
 
 #### Creating constraints
 
