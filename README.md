@@ -41,6 +41,14 @@ To create a set called `:C` which can hold up to 3 values between 1 and 6:
 i.create_set(:C, [1,2,3,4,5,6], max_values: 3)
 ```
 
+#### Creating constraints
+
+To create a constraint that all values of C should be greater than B:
+
+```ruby
+i.create_constraint(:C, :B) { |**sol| sol[:C].all? { |c| c > sol[:B] } }
+```
+
 #### Solving
 
 To solve the system:
@@ -50,14 +58,6 @@ solution = SolutionEnumerator.new(i.method(:interpret), i.dimacs).first
 ```
 
 See the Sudoku test in `switch_interpreter_spec.rb` for a more thorough usage example.
-
-#### Creating constraints
-
-To create a constraint that all values of C should be greater than B:
-
-```ruby
-i.create_constraint(:C, :B) { |**sol| sol[:C].all? { |c| c > sol[:B] } }
-```
 
 ### Installing
 
