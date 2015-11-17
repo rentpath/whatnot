@@ -1,3 +1,38 @@
+# SwitchInterpreter is the main class used to interact with the Whatnot library.
+#
+# == Role
+#
+# Minisat understands a constraint in terms like this:
+#
+#   100 101 102 103 0
+#   -100 -101 0
+#   -100 -102 0
+#   -100 -103 0
+#   -101 -102 0
+#   -101 -103 0
+#   -102 -103 0
+#
+# Humans understand a constraint more like this:
+#
+#   {which_cat_to_take_on_my_vacation: 'Fluffy'} or
+#   {which_cat_to_take_on_my_vacation: 'Spot'} or
+#   {which_cat_to_take_on_my_vacation: 'Tiger'} or
+#   {which_cat_to_take_on_my_vacation: 'Mittens'}
+#
+# It's the SwitchInterpreter's job to translate one into the other.
+#
+# == Usage
+#
+# 1. Call #new.
+# 2. Create your constraints using the #create_* instance methods on SwitchInterpreter.
+# 3. To iterate through solutions, pass the #interpret method of this object into a
+#    SolutionEnumerator instance.
+#
+# == Architecture notes
+#
+# - The #interpret method can be overridden in a subclass of SwitchInterpreter if you
+#   want to produce some output other than a hash from the DIMACS output.
+#
 class SwitchInterpreter
   class NameCollisionError < ::RuntimeError
     def initialize(info="")
@@ -15,62 +50,8 @@ class SwitchInterpreter
     @non_interpreted_groups = {}
   end
 
-  def interpreted_groups
-    groups = {}
-    groups.merge! @slot_groups
-    groups.merge! @set_groups
-    groups
-  end
-
-  def dimacs
-    d = "c SwitchInterpreter\np cnf 1 1\n"
-    d << "\n"
-
-    interpreted_groups.to_a.each do |key, group|
-      d << "c ---------------------------\n"
-      d << "c INTERPRETED\n"
-      d << "c #{group.class} => \n"
-      d << "c   #{key}\n"
-      d << "c \n"
-      d << group.dimacs
-    end
-
-    @non_interpreted_groups.to_a.each do |key, group|
-      d << "c ---------------------------\n"
-      d << "c NON-INTERPRETED\n"
-      d << "c #{group.class} => \n"
-      d << "c   #{key}\n"
-      d << "c \n"
-      d << group.dimacs
-    end
-
-    d
-  end
-
-  def merge_payload!(for_num: nil, to_hash: nil)
-    if for_num.nil? || to_hash.nil?
-      raise "left off required kwargs #{"for_num, " unless for_num}#{"to_hash" unless to_hash}" 
-    end
-
-    payload = Switch.find(for_num).payload
-    payload_key, payload_val = *payload.to_a[0]
-
-    # manage sets vs. slots
-    if @set_groups[payload_key]
-      payload_val = [payload_val] unless payload_val.is_a?(Array)
-
-      if to_hash[payload_key]
-        to_hash[payload_key] += payload_val
-      else
-        to_hash[payload_key] = payload_val
-      end
-
-      return to_hash
-    end
-
-    to_hash.merge!(payload)
-  end
-
+  # @param [Object] slotname The name of the slot. Appears as a key in the comments
+  # i.create_slot(:"#{letter}#{num}", [1,2,3,4,5,6,7,8,9], allow_empty: false)
   def create_slot(slotname, slotvalues, allow_empty: true)
     if interpreted_groups[slotname]
       raise NameCollisionError.new(slotname)
@@ -119,7 +100,7 @@ class SwitchInterpreter
         slotnames.include?(k) && slotvalue == v
       end
 
-      @non_interpreted_groups[slotvalue] = mutual_exclusion
+      @non_interpreted_groups["Slots [#{slotnames}] mutually exclusive, value: #{slotvalue}"] = mutual_exclusion
     end
   end
 
@@ -139,7 +120,7 @@ class SwitchInterpreter
         slotnames.include?(k) && slotvalue == v
       end
 
-      @non_interpreted_groups[slotvalue] = mutual_exclusion
+      @non_interpreted_groups["Sets [#{slotnames}] mutually exclusive, value: #{slotvalue}"] = mutual_exclusion
     end
   end
 
@@ -193,6 +174,64 @@ class SwitchInterpreter
     else
       @non_interpreted_groups[line_of_caller] = FailedSolutionSwitchGroup.new(failed_solution_strings)
     end
+  end
+
+  def dimacs
+    d = "c SwitchInterpreter\np cnf 1 1\n"
+    d << "\n"
+
+    interpreted_groups.to_a.each do |key, group|
+      d << "c ---------------------------\n"
+      d << "c INTERPRETED\n"
+      d << "c #{group.class} => \n"
+      d << "c   #{key}\n"
+      d << "c \n"
+      d << group.dimacs
+    end
+
+    @non_interpreted_groups.to_a.each do |key, group|
+      d << "c ---------------------------\n"
+      d << "c NON-INTERPRETED\n"
+      d << "c #{group.class} => \n"
+      d << "c   #{key}\n"
+      d << "c \n"
+      d << group.dimacs
+    end
+
+    d
+  end
+
+  private
+
+  def interpreted_groups
+    groups = {}
+    groups.merge! @slot_groups
+    groups.merge! @set_groups
+    groups
+  end
+
+  def merge_payload!(for_num: nil, to_hash: nil)
+    if for_num.nil? || to_hash.nil?
+      raise "left off required kwargs #{"for_num, " unless for_num}#{"to_hash" unless to_hash}" 
+    end
+
+    payload = Switch.find(for_num).payload
+    payload_key, payload_val = *payload.to_a[0]
+
+    # manage sets vs. slots
+    if @set_groups[payload_key]
+      payload_val = [payload_val] unless payload_val.is_a?(Array)
+
+      if to_hash[payload_key]
+        to_hash[payload_key] += payload_val
+      else
+        to_hash[payload_key] = payload_val
+      end
+
+      return to_hash
+    end
+
+    to_hash.merge!(payload)
   end
 
   def interpret(solution)

@@ -71,6 +71,32 @@ module Whatnot
         end
       end
 
+      context "mutually exclusive slots" do
+        let(:expected) do
+          [{},
+           {:B=>5},
+           {:B=>3},
+           {:B=>4},
+           {:A=>3},
+           {:A=>5},
+           {:A=>5, :B=>3},
+           {:A=>4},
+           {:A=>5, :B=>4},
+           {:A=>4, :B=>5},
+           {:A=>3, :B=>4},
+           {:A=>3, :B=>5},
+           {:A=>4, :B=>3}]
+        end
+
+        it "works" do
+          i = SwitchInterpreter.new
+          i.create_mutually_exclusive_slots([:A, :B], [3,4,5], allow_empty: true)
+
+          solutions = SolutionEnumerator.new(i.method(:interpret), i.dimacs).entries
+          expect(solutions).to eq(expected)
+        end
+      end
+
       context "mutually exclusive sets" do
         let(:expected) do
           [{:B=>[3, 4, 5]},
@@ -126,9 +152,8 @@ module Whatnot
         i = SwitchInterpreter.new
 
         ("A".."I").to_a.each do |letter|
-          ('1'..'9').to_a.each do |num|
-            i.create_slot(:"#{letter}#{num}", [1,2,3,4,5,6,7,8,9], allow_empty: false)
-          end
+          slotnames = ('1'..'9').map { |n| :"#{letter}#{n}" }
+          i.create_mutually_exclusive_slots(slotnames, [1,2,3,4,5,6,7,8,9], allow_empty: false)
         end
 
         (1..9).to_a.each do |slotnum|
