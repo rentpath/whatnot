@@ -34,7 +34,11 @@
 #   want to produce some output other than a hash from the DIMACS output.
 #
 class SwitchInterpreter
+
+  # For when you try to register a switch in a SwitchInterpreter by a name that's taken
   class NameCollisionError < ::RuntimeError
+
+    # @param info The name of the switch that's already taken.
     def initialize(info="")
       super("Already using name #{info}")
     end
@@ -50,8 +54,42 @@ class SwitchInterpreter
     @non_interpreted_groups = {}
   end
 
-  # @param [Object] slotname The name of the slot. Appears as a key in the comments
-  # i.create_slot(:"#{letter}#{num}", [1,2,3,4,5,6,7,8,9], allow_empty: false)
+  ##
+  # Create a slot. A "slot" is a SwitchGroup that represents a key that can contain only
+  # one of a set of possible values that you specify.
+  #
+  # @param [#to_s] slotname The name of the slot.
+  # @param [Array] slotvalues The set of possible values.
+  # @param allow_empty [Boolean] Whether the slot can be empty (defaults to true).
+  #
+  # ==== Usage
+  #
+  # To create a slot called "A", with possible values (foo, bar, baz):
+  #
+  #   i.create_slot(:A, [:foo, :bar, :baz], allow_empty: false)
+  #
+  # This slot will appear in the DIMACS output like this:
+  #
+  #   c ---------------------------
+  #   c INTERPRETED
+  #   c SwitchGroup =>
+  #   c   A
+  #   c
+  #   c Switches:
+  #   c   1: {:A=>:foo}
+  #   c   2: {:A=>:bar}
+  #   c   3: {:A=>:baz}
+  #   1 2 3 0
+  #   -1 -2 0
+  #   -1 -3 0
+  #   -2 -3 0
+  #
+  # Valid solutions:
+  #
+  #   {:A=>:baz}
+  #   {:A=>:foo}
+  #   {:A=>:bar}
+  #
   def create_slot(slotname, slotvalues, allow_empty: true)
     if interpreted_groups[slotname]
       raise NameCollisionError.new(slotname)
@@ -69,6 +107,45 @@ class SwitchInterpreter
     @slot_groups[slotname] = SwitchGroup.new(numbers, min_on: min_on, max_on: 1)
   end
 
+  ##
+  # Create a set. A "set" is a SwitchGroup that represents a key that can contain more
+  # than one of a set of possible values. This value appears in the solution as an
+  # Array if it is non-empty, and if it is empty, it doesn't appear at all.
+  #
+  # @param [#to_s] setname The name of the set.
+  # @param [Array] setvalues The set of possible values.
+  # @param allow_empty [Boolean] Whether the set can be empty (defaults to true).
+  # @param max_values [Integer] Maximum number of values (defaults to 2).
+  #
+  # ==== Usage
+  #
+  # To create a set called "A", with possible values (foo, bar, baz):
+  #
+  #   i.create_set(:A, [:foo, :bar, :baz], allow_empty: false)
+  #
+  # This set will appear in the DIMACS output like this:
+  #
+  #   c ---------------------------
+  #   c INTERPRETED
+  #   c SwitchGroup =>
+  #   c   A
+  #   c
+  #   c Switches:
+  #   c   1: {:A=>:foo}
+  #   c   2: {:A=>:bar}
+  #   c   3: {:A=>:baz}
+  #   1 2 3 0
+  #   -1 -2 -3 0
+  #
+  # Valid solutions:
+  #
+  #   {:A=>[:baz]}
+  #   {:A=>[:foo]}
+  #   {:A=>[:bar]}
+  #   {:A=>[:foo, :bar]}
+  #   {:A=>[:bar, :baz]}
+  #   {:A=>[:foo, :baz]}
+  #
   def create_set(setname, setvalues, allow_empty: true, max_values: 2)
     if interpreted_groups[setname]
       raise NameCollisionError.new(setname)
@@ -86,6 +163,31 @@ class SwitchInterpreter
     @set_groups[setname] = SwitchGroup.new(numbers, min_on: min_on, max_on: max_values)
   end
 
+  ##
+  # Create a series of mutually exclusive slots. Each slot can only hold one of a set
+  # of possible values, and each possible value can only appear once across all of the
+  # slots. You can visualize this as a table with chairs (slots) and guests (values).
+  # Each chair can only seat one guest, and each guest can only sit in one chair.
+  #
+  # @param [Array] slotname The names of the slot.
+  # @param [Array] slotvalues The set of possible values.
+  # @param allow_empty [Boolean] Whether a slot can be empty (defaults to true).
+  #
+  # ==== Usage
+  #
+  # To create mutually exclusive slots:
+  #
+  #   i.create_mutually_exclusive_slots([:A, :B, :C], [:foo, :bar, :baz], allow_empty: false)
+  #
+  # Valid solutions:
+  #
+  #   {:A=>:baz, :B=>:foo, :C=>:bar}
+  #   {:A=>:bar, :B=>:foo, :C=>:baz}
+  #   {:A=>:foo, :B=>:bar, :C=>:baz}
+  #   {:A=>:baz, :B=>:bar, :C=>:foo}
+  #   {:A=>:foo, :B=>:baz, :C=>:bar}
+  #   {:A=>:bar, :B=>:baz, :C=>:foo}
+  #
   def create_mutually_exclusive_slots(slotnames, slotvalues, allow_empty: false)
     begin
       slotnames.each do |slotname|
@@ -104,6 +206,30 @@ class SwitchInterpreter
     end
   end
 
+  ##
+  # Create a series of mutually exclusive sets. A set can hold multiple values, but each
+  # value can only go into one set. Imagine you have a bunch of fish and a number of buckets
+  # to put them in. Each fish can only go in one bucket, but each bucket can hold a number
+  # of fish. You can specify the max size of a bucket with max_values.
+  #
+  # @param [Array] slotname The names of the slot.
+  # @param [Array] slotvalues The set of possible values.
+  # @param allow_empty [Boolean] Whether a slot can be empty (defaults to true).
+  # @param max_values [Boolean] Max number of values a bucket can hold (defaults to 2).
+  #
+  # ==== Usage
+  #
+  # To create mutually exclusive sets:
+  #
+  #   i.create_mutually_exclusive_sets([:A, :B], [:foo, :bar], allow_empty: true)
+  #
+  # Valid solutions:
+  #
+  #   {:B=>[:foo, :bar]}
+  #   {:A=>[:foo], :B=>[:bar]}
+  #   {:A=>[:foo, :bar]}
+  #   {:A=>[:bar], :B=>[:foo]}
+  #
   def create_mutually_exclusive_sets(slotnames, slotvalues, allow_empty: true, require_complete: true, max_values: 2)
     begin
       slotnames.each do |slotname|
@@ -124,6 +250,49 @@ class SwitchInterpreter
     end
   end
 
+  ##
+  # Create a constraint you can define yourself with a block. The block must return false when
+  # the solution does not meet the constraint. It works like this:
+  #
+  # 1. First, all possible combinations of values for the given variables are found.
+  # 2. The combinations are made into hashes, iterated, and passed into the block one by one.
+  # 3. If a combination of values does not meet the constraint, all solutions with this combination
+  #    are ruled out.
+  #
+  # It's important to remember that the hash passed into the block is a partial solution that
+  # only contains values for the variables you passed into the method.
+  #
+  # @param [Array] slotnames The slot or set names.
+  # @yield [Hash] solution The partial solution.
+  #
+  # ==== Example (ride sharing in 3 vehicles)
+  #
+  #   1.upto(3).each do |n|
+  #
+  #     # number of passengers per vehicle
+  #     i.create_constraint("vehicle_#{n}", "vehicle_#{n}_passengers") do |**solution|
+  #       if is_van?(solution["vehicle_1"])
+  #         solution["vehicle_1_passengers"].size <= 6
+  #       else
+  #         solution["vehicle_1_passengers"].size <= 4
+  #       end
+  #     end
+  #   end
+  #
+  #   # all vehicles full (or all except 1)
+  #   i.create_constraint("vehicle_1_passengers",
+  #                       "vehicle_2_passengers",
+  #                       "vehicle_3_passengers") do |**solution|
+  #
+  #     (vehicle_is_full?(solution["vehicle_1"]) &&
+  #      vehicle_is_full?(solution["vehicle_2"]) &&
+  #      vehicle_is_full?(solution["vehicle_3"])) ||
+  #
+  #     ((vehicle_is_full?(solution["vehicle_1"]) && vehicle_is_full?(solution["vehicle_2"])) ||
+  #      (vehicle_is_full?(solution["vehicle_2"]) && vehicle_is_full?(solution["vehicle_3"])) ||
+  #      (vehicle_is_full?(solution["vehicle_1"]) && vehicle_is_full?(solution["vehicle_3"])))
+  #   end
+  #
   def create_constraint(*slotnames)
     solutions_to_try = nil
 
