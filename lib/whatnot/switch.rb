@@ -1,3 +1,14 @@
+# A Switch represents one key-value mapping in the problem space.
+#
+# So if your problem is which cat to take on your vacation, and you have
+# four cats, and you can only take one, then you have four Switches in
+# your problem space:
+#
+#   1: {:which_cat_to_take=>"Fluffy"}
+#   2: {:which_cat_to_take=>"Spot"}
+#   3: {:which_cat_to_take=>"Mittens"}
+#   4: {:which_cat_to_take=>"Tiger"}
+#
 class Switch
   def self.next_number
     @@next_number ||= 1

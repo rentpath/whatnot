@@ -21,17 +21,15 @@
 #
 # It's the SwitchInterpreter's job to translate one into the other.
 #
+# By default, all slots and sets are allowed to be empty unless you request the opposite
+# with `allow_empty: false`.
+#
 # == Usage
 #
 # 1. Call #new.
 # 2. Create your constraints using the #create_* instance methods on SwitchInterpreter.
 # 3. To iterate through solutions, pass the #interpret method of this object into a
 #    SolutionEnumerator instance.
-#
-# == Architecture notes
-#
-# - The #interpret method can be overridden in a subclass of SwitchInterpreter if you
-#   want to produce some output other than a hash from the DIMACS output.
 #
 class SwitchInterpreter
 
@@ -188,12 +186,9 @@ class SwitchInterpreter
   #   {:A=>:foo, :B=>:baz, :C=>:bar}
   #   {:A=>:bar, :B=>:baz, :C=>:foo}
   #
-  def create_mutually_exclusive_slots(slotnames, slotvalues, allow_empty: false)
-    begin
-      slotnames.each do |slotname|
-        create_slot(slotname, slotvalues, allow_empty: allow_empty)
-      end
-    rescue NameCollisionError
+  def create_mutually_exclusive_slots(slotnames, slotvalues, allow_empty: true)
+    slotnames.each do |slotname|
+      create_slot(slotname, slotvalues, allow_empty: allow_empty)
     end
 
     slotvalues.each do |slotvalue|
@@ -212,16 +207,19 @@ class SwitchInterpreter
   # to put them in. Each fish can only go in one bucket, but each bucket can hold a number
   # of fish. You can specify the max size of a bucket with max_values.
   #
+  # If a solution has an empty set, that set will not appear in the solution at all.
+  #
   # @param [Array] slotname The names of the slot.
   # @param [Array] slotvalues The set of possible values.
   # @param allow_empty [Boolean] Whether a slot can be empty (defaults to true).
+  # @param require_complete [Boolean] Whether all values must be present (defaults to true).
   # @param max_values [Boolean] Max number of values a bucket can hold (defaults to 2).
   #
   # ==== Usage
   #
   # To create mutually exclusive sets:
   #
-  #   i.create_mutually_exclusive_sets([:A, :B], [:foo, :bar], allow_empty: true)
+  #   i.create_mutually_exclusive_sets([:A, :B], [:foo, :bar])
   #
   # Valid solutions:
   #
@@ -231,11 +229,8 @@ class SwitchInterpreter
   #   {:A=>[:bar], :B=>[:foo]}
   #
   def create_mutually_exclusive_sets(slotnames, slotvalues, allow_empty: true, require_complete: true, max_values: 2)
-    begin
-      slotnames.each do |slotname|
-        create_set(slotname, slotvalues, allow_empty: allow_empty, max_values: max_values)
-      end
-    rescue NameCollisionError
+    slotnames.each do |slotname|
+      create_set(slotname, slotvalues, allow_empty: allow_empty, max_values: max_values)
     end
 
     slotvalues.each do |slotvalue|
@@ -262,35 +257,22 @@ class SwitchInterpreter
   # It's important to remember that the hash passed into the block is a partial solution that
   # only contains values for the variables you passed into the method.
   #
+  # Since all combinations of variables are enumerated here, it's best to keep the number of possible
+  # combinations as small as possible for each constraint. This is very important to keep in mind
+  # when modeling your problem.
+  #
   # @param [Array] slotnames The slot or set names.
   # @yield [Hash] solution The partial solution.
   #
-  # ==== Example (ride sharing in 3 vehicles)
+  # ==== Example (ride sharing)
   #
-  #   1.upto(3).each do |n|
-  #
-  #     # number of passengers per vehicle
-  #     i.create_constraint("vehicle_#{n}", "vehicle_#{n}_passengers") do |**solution|
-  #       if is_van?(solution["vehicle_1"])
-  #         solution["vehicle_1_passengers"].size <= 6
-  #       else
-  #         solution["vehicle_1_passengers"].size <= 4
-  #       end
+  #   # make sure a vehicle is not filled over capacity
+  #   i.create_constraint("vehicle_1", "vehicle_1_passengers") do |**solution|
+  #     if is_van?(solution["vehicle_1"])
+  #       solution["vehicle_1_passengers"].size <= 6
+  #     else
+  #       solution["vehicle_1_passengers"].size <= 4
   #     end
-  #   end
-  #
-  #   # all vehicles full (or all except 1)
-  #   i.create_constraint("vehicle_1_passengers",
-  #                       "vehicle_2_passengers",
-  #                       "vehicle_3_passengers") do |**solution|
-  #
-  #     (vehicle_is_full?(solution["vehicle_1"]) &&
-  #      vehicle_is_full?(solution["vehicle_2"]) &&
-  #      vehicle_is_full?(solution["vehicle_3"])) ||
-  #
-  #     ((vehicle_is_full?(solution["vehicle_1"]) && vehicle_is_full?(solution["vehicle_2"])) ||
-  #      (vehicle_is_full?(solution["vehicle_2"]) && vehicle_is_full?(solution["vehicle_3"])) ||
-  #      (vehicle_is_full?(solution["vehicle_1"]) && vehicle_is_full?(solution["vehicle_3"])))
   #   end
   #
   def create_constraint(*slotnames)
