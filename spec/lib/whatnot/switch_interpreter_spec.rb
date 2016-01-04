@@ -202,7 +202,7 @@ module Whatnot
           i.create_constraint(slot) { |**sol| sol[slot] == val }
         end
 
-        solution = SolutionEnumerator.new(i.method(:interpret), i.dimacs).first
+        solution = i.enumerator.first
 
         print_sudoku(solution)
 

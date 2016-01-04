@@ -54,7 +54,7 @@ i.create_constraint(:C, :B) { |**sol| sol[:C].all? { |c| c > sol[:B] } }
 To solve the system:
 
 ```ruby
-solution = SolutionEnumerator.new(i.method(:interpret), i.dimacs).first
+solution = i.enumerator.first
 ```
 
 ### Usage
@@ -143,7 +143,7 @@ puzzle.each do |slot, val|
   i.create_constraint(slot) { |**sol| sol[slot] == val }
 end
 
-solution = SolutionEnumerator.new(i.method(:interpret), i.dimacs).first
+solution = i.enumerator.first
 
 print_sudoku(solution)
 ```

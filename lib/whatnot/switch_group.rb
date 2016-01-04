@@ -1,3 +1,10 @@
+# A SwitchGroup is a logical group of Switches. These can be combined
+# to form a complex constraint system as in SwitchInterpreter.
+#
+# Initializing a SwitchGroup will run Minisat in most cases, to find all
+# of the possible solutions to that group. This is important because
+# those solutions can be interated later for programmatic constraints.
+#
 class SwitchGroup
   attr_accessor :switches, :possibilities
 

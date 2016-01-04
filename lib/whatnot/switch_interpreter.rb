@@ -22,7 +22,7 @@
 # It's the SwitchInterpreter's job to translate one into the other.
 #
 # By default, all slots and sets are allowed to be empty unless you request the opposite
-# with `allow_empty: false`.
+# with <code>allow_empty: false</code>.
 #
 # == Usage
 #
@@ -352,6 +352,17 @@ class SwitchInterpreter
     d
   end
 
+  # Return a SolutionEnumerator to solve the problem represented by this SolutionInterpreter.
+  #
+  # == Find the first solution
+  #
+  #   puts interpreter.enumerator.first
+  #
+  # @return [SolutionEnumerator] Enumerator.
+  def enumerator
+    SolutionEnumerator.new(self.method(:interpret), dimacs)
+  end
+
   private
 
   def interpreted_groups
@@ -398,4 +409,5 @@ class SwitchInterpreter
 
     out
   end
+
 end
